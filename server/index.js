@@ -58,14 +58,14 @@ function buildRoomPayload(room) {
 }
 
 function processDiceRoll(room, socketId) {
-  if (!room.gameState || room.gameState.winner) return;
+  if (!room.gameState || room.gameState.winner) return false;
 
   const currentPlayer = room.players[room.gameState.currentPlayerIndex];
-  if (!currentPlayer) return;
+  if (!currentPlayer) return false;
 
   if (currentPlayer.socketId !== socketId) {
     io.to(socketId).emit("error", { message: "Not your turn!" });
-    return;
+    return false;
   }
 
   const dice = rollDice();
@@ -89,7 +89,7 @@ function processDiceRoll(room, socketId) {
       winner: currentPlayer.name,
       winnerIndex: currentPlayer.index,
     });
-    return;
+    return true;
   }
 
   // Extra turn on rolling 6
@@ -103,6 +103,7 @@ function processDiceRoll(room, socketId) {
   room.gameState.extraTurn = extraTurn;
 
   io.to(room.roomCode).emit("game-update", buildRoomPayload(room));
+  return true;
 }
 
 // ─── Socket Events ────────────────────────────────────────────────────────────
@@ -194,21 +195,19 @@ io.on("connection", (socket) => {
   // ── ROLL DICE ──────────────────────────────────────────────────────────────
   socket.on("roll-dice", ({ roomCode }, callback) => {
     const room = getRoom(roomCode);
-    if (!room) return callback ? callback({ error: "Room not found." }) : null;
-    if (room.status !== "playing") {
-      return callback ? callback({ error: "Game is not in progress." }) : null;
-    }
+    if (!room) return callback?.({ error: "Room not found." });
+    if (room.status !== "playing") return callback?.({ error: "Game is not in progress." });
 
-    processDiceRoll(room, socket.id);
-    if (callback) callback({ success: true });
+    const ok = processDiceRoll(room, socket.id);
+    callback?.({ success: ok, error: ok ? undefined : "Not your turn." });
   });
 
   // ── PLAY AGAIN ─────────────────────────────────────────────────────────────
   socket.on("play-again", ({ roomCode }, callback) => {
     const room = getRoom(roomCode);
-    if (!room) return callback({ error: "Room not found." });
+    if (!room) return callback?.({ error: "Room not found." });
     if (room.creatorSocketId !== socket.id) {
-      return callback({ error: "Only the room creator can restart." });
+      return callback?.({ error: "Only the room creator can restart." });
     }
 
     initGameState(room);
@@ -216,7 +215,7 @@ io.on("connection", (socket) => {
 
     console.log(`[Game] Restarted in room: ${roomCode}`);
     io.to(roomCode).emit("game-started", buildRoomPayload(room));
-    callback({ success: true });
+    callback?.({ success: true });
   });
 
   // ── DISCONNECT ─────────────────────────────────────────────────────────────

@@ -1,47 +1,74 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Board from "../components/Board.jsx";
 import Dice from "../components/Dice.jsx";
 import EventLog from "../components/EventLog.jsx";
 
+// Animation duration must be slightly shorter than the Dice component's own animation
+// (ANIM_TICKS * ANIM_MS = 8 * 75 = 600ms) so we wait 750ms before resetting.
+const ROLL_RESET_MS = 750;
+
 export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeave }) {
-  const { gameState, players, status } = room;
+  const { gameState, players } = room;
   const [rolling, setRolling] = useState(false);
   const [events, setEvents] = useState([]);
   const [highlightSquare, setHighlightSquare] = useState(null);
-  const prevGameStateRef = useRef(null);
+  const prevLastEventRef = useRef(null);
+  const rollResetTimerRef = useRef(null);
 
-  const isMyTurn = gameState && players[gameState.currentPlayerIndex]?.socketId === myPlayer?.socketId;
+  const isMyTurn = !!(
+    gameState &&
+    players[gameState.currentPlayerIndex]?.socketId === myPlayer?.socketId
+  );
   const currentPlayer = players[gameState?.currentPlayerIndex];
   const winner = gameState?.winner != null ? players[gameState.winner] : null;
 
-  // Track events from gameState changes
+  // Append new events from incoming game-state
   useEffect(() => {
-    if (gameState?.lastEvent) {
-      const prev = prevGameStateRef.current;
-      if (!prev || JSON.stringify(prev.lastEvent) !== JSON.stringify(gameState.lastEvent)) {
-        setEvents((e) => [...e.slice(-19), { ...gameState.lastEvent }]);
-        if (gameState.lastEvent.position) {
-          setHighlightSquare(gameState.lastEvent.position);
-          setTimeout(() => setHighlightSquare(null), 1500);
-        }
-      }
+    if (!gameState?.lastEvent) return;
+    const ev = gameState.lastEvent;
+    const prevEv = prevLastEventRef.current;
+    if (JSON.stringify(ev) === JSON.stringify(prevEv)) return;
+    prevLastEventRef.current = ev;
+
+    setEvents((e) => [...e.slice(-19), { ...ev }]);
+    if (ev.position) {
+      setHighlightSquare(ev.position);
+      setTimeout(() => setHighlightSquare(null), 1500);
     }
-    prevGameStateRef.current = gameState;
   }, [gameState]);
 
-  async function handleRoll() {
-    if (!isMyTurn || rolling) return;
-    setRolling(true);
-    await onRoll();
-    setTimeout(() => setRolling(false), 700);
-  }
+  // Clean up roll-reset timer on unmount
+  useEffect(() => () => clearTimeout(rollResetTimerRef.current), []);
 
+  const handleRoll = useCallback(async () => {
+    if (!isMyTurn || rolling) return;
+
+    setRolling(true);
+    try {
+      const res = await onRoll();
+      if (res?.error) {
+        // Server rejected the roll — reset immediately
+        setRolling(false);
+        return;
+      }
+    } catch {
+      setRolling(false);
+      return;
+    }
+
+    // Let the Dice animation finish before resetting
+    rollResetTimerRef.current = setTimeout(() => setRolling(false), ROLL_RESET_MS);
+  }, [isMyTurn, rolling, onRoll]);
+
+  // ── Winner screen ────────────────────────────────────────────────────────────
   if (winner) {
     const iWon = winner.socketId === myPlayer?.socketId;
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4"
-        style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)" }}>
-        <div className="text-center animate-pop">
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-4"
+        style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)" }}
+      >
+        <div className="text-center">
           <div className="text-8xl mb-4">{iWon ? "🏆" : "😢"}</div>
           <h2 className="text-5xl font-black text-white mb-2">
             {iWon ? "You Win!" : `${winner.name} Wins!`}
@@ -49,21 +76,24 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
           <p className="text-slate-400 text-lg mb-8">
             {iWon ? "Congratulations! You reached square 100!" : "Better luck next time!"}
           </p>
-          {/* Final board */}
           <div className="w-full max-w-sm mx-auto mb-6">
             <Board players={players} />
           </div>
           <div className="flex gap-3 justify-center flex-wrap">
             {myPlayer?.isCreator && (
-              <button onClick={onPlayAgain}
+              <button
+                onClick={onPlayAgain}
                 className="px-8 py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500
-                  text-slate-900 font-black text-lg hover:scale-105 active:scale-95 transition-all shadow-lg">
+                  text-slate-900 font-black text-lg hover:scale-105 active:scale-95 transition-all shadow-lg"
+              >
                 🔄 Play Again
               </button>
             )}
-            <button onClick={onLeave}
+            <button
+              onClick={onLeave}
               className="px-8 py-4 rounded-xl bg-white/10 hover:bg-white/20
-                text-white font-bold text-lg transition-all active:scale-95">
+                text-white font-bold text-lg transition-all active:scale-95"
+            >
               🏠 Leave
             </button>
           </div>
@@ -72,10 +102,12 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
     );
   }
 
+  // ── Game screen ──────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col"
-      style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)" }}>
-
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)" }}
+    >
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-black/30 backdrop-blur border-b border-white/10">
         <div className="flex items-center gap-2">
@@ -86,17 +118,20 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
           </div>
         </div>
 
-        {/* Current turn indicator */}
         {currentPlayer && (
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold
-            ${isMyTurn ? "bg-yellow-400/20 text-yellow-300 animate-flash" : "bg-white/10 text-slate-300"}`}>
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold
+              ${isMyTurn ? "bg-yellow-400/20 text-yellow-300 animate-pulse" : "bg-white/10 text-slate-300"}`}
+          >
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: currentPlayer.color }} />
             {isMyTurn ? "Your Turn!" : `${currentPlayer.name}'s Turn`}
           </div>
         )}
 
-        <button onClick={onLeave}
-          className="text-slate-500 hover:text-red-400 transition-colors text-sm px-2 py-1">
+        <button
+          onClick={onLeave}
+          className="text-slate-500 hover:text-red-400 transition-colors text-sm px-2 py-1"
+        >
           ✕ Leave
         </button>
       </div>
@@ -119,11 +154,15 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
               {players.map((p, i) => {
                 const isActive = gameState?.currentPlayerIndex === i;
                 return (
-                  <div key={p.id || i}
+                  <div
+                    key={p.id || i}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all
-                      ${isActive ? "bg-white/20 ring-2 ring-yellow-400/60" : "bg-white/5"}`}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white shrink-0"
-                      style={{ backgroundColor: p.color }}>
+                      ${isActive ? "bg-white/20 ring-2 ring-yellow-400/60" : "bg-white/5"}`}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white shrink-0"
+                      style={{ backgroundColor: p.color }}
+                    >
                       {p.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -132,15 +171,32 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
                         Square {p.position === 0 ? "Start" : p.position}
                       </div>
                     </div>
-                    {isActive && <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />}
+                    {isActive && (
+                      <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Dice */}
+          {/* Dice panel */}
           <div className="bg-white/10 backdrop-blur rounded-2xl border border-white/20 p-4">
+            {/* Turn status */}
+            <div className="mb-3 text-center">
+              <p className={`text-sm font-bold ${isMyTurn ? "text-yellow-300" : "text-slate-400"}`}>
+                {isMyTurn ? "🎯 Your turn — roll the dice!" : `⏳ Waiting for ${currentPlayer?.name ?? "opponent"}…`}
+              </p>
+            </div>
+
+            {/* Last roll display */}
+            {gameState?.diceValue != null && (
+              <div className="mb-3 flex items-center justify-center gap-2">
+                <span className="text-slate-400 text-xs uppercase tracking-widest">Last roll</span>
+                <span className="text-white font-black text-xl leading-none">{gameState.diceValue}</span>
+              </div>
+            )}
+
             <div className="flex justify-center">
               <Dice
                 value={gameState?.diceValue}
@@ -151,7 +207,7 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
             </div>
 
             {gameState?.extraTurn && isMyTurn && (
-              <div className="mt-3 text-center px-3 py-2 rounded-lg bg-yellow-400/20 text-yellow-300 text-sm font-bold animate-pop">
+              <div className="mt-3 text-center px-3 py-2 rounded-lg bg-yellow-400/20 text-yellow-300 text-sm font-bold">
                 🎉 Rolled a 6 — Roll again!
               </div>
             )}
