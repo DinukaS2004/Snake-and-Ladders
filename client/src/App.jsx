@@ -81,7 +81,7 @@ export default function App() {
   }, [emit, room]);
 
   const handleRollDice = useCallback(async () => {
-    await emit("roll-dice", { roomCode: room.roomCode });
+    return await emit("roll-dice", { roomCode: room.roomCode });
   }, [emit, room]);
 
   const handlePlayAgain = useCallback(async () => {
@@ -128,7 +128,7 @@ export default function App() {
         />
       )}
 
-      {screen === SCREENS.GAME && room && (
+      {screen === SCREENS.GAME && room && myPlayer && (
         <GameScreen
           room={room}
           myPlayer={myPlayer}

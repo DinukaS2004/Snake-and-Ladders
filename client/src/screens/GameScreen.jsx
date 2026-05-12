@@ -3,10 +3,6 @@ import Board from "../components/Board.jsx";
 import Dice from "../components/Dice.jsx";
 import EventLog from "../components/EventLog.jsx";
 
-// Animation duration must be slightly shorter than the Dice component's own animation
-// (ANIM_TICKS * ANIM_MS = 8 * 75 = 600ms) so we wait 750ms before resetting.
-const ROLL_RESET_MS = 750;
-
 export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeave }) {
   const { gameState, players } = room;
   const [rolling, setRolling] = useState(false);
@@ -15,19 +11,41 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
   const prevLastEventRef = useRef(null);
   const rollResetTimerRef = useRef(null);
 
+  // ── Derived state ─────────────────────────────────────────────────────────
+  // Compare by player INDEX (0 or 1) — never by socketId, which can diverge
+  // if there is any mismatch between the join-response player object and the
+  // room payload players array.
   const isMyTurn = !!(
     gameState &&
-    players[gameState.currentPlayerIndex]?.socketId === myPlayer?.socketId
+    myPlayer != null &&
+    gameState.currentPlayerIndex === myPlayer.index
   );
+
   const currentPlayer = players[gameState?.currentPlayerIndex];
   const winner = gameState?.winner != null ? players[gameState.winner] : null;
 
-  // Append new events from incoming game-state
+  // ── Reset rolling as soon as the server confirms the turn (turnCount changes)
+  // This is event-driven and replaces the fragile fixed-timeout approach.
+  // It also guarantees the OTHER player's dice unblocks the moment game-update
+  // arrives — even if their rolling state was somehow left true.
+  const prevTurnCountRef = useRef(gameState?.turnCount ?? -1);
+  useEffect(() => {
+    const tc = gameState?.turnCount ?? -1;
+    if (tc !== prevTurnCountRef.current) {
+      prevTurnCountRef.current = tc;
+      clearTimeout(rollResetTimerRef.current);
+      setRolling(false);
+    }
+  }, [gameState?.turnCount]);
+
+  // ── Cleanup timer on unmount ───────────────────────────────────────────────
+  useEffect(() => () => clearTimeout(rollResetTimerRef.current), []);
+
+  // ── Append new events ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!gameState?.lastEvent) return;
     const ev = gameState.lastEvent;
-    const prevEv = prevLastEventRef.current;
-    if (JSON.stringify(ev) === JSON.stringify(prevEv)) return;
+    if (JSON.stringify(ev) === JSON.stringify(prevLastEventRef.current)) return;
     prevLastEventRef.current = ev;
 
     setEvents((e) => [...e.slice(-19), { ...ev }]);
@@ -37,32 +55,32 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
     }
   }, [gameState]);
 
-  // Clean up roll-reset timer on unmount
-  useEffect(() => () => clearTimeout(rollResetTimerRef.current), []);
-
+  // ── Roll handler ──────────────────────────────────────────────────────────
   const handleRoll = useCallback(async () => {
     if (!isMyTurn || rolling) return;
 
     setRolling(true);
+    let res;
     try {
-      const res = await onRoll();
-      if (res?.error) {
-        // Server rejected the roll — reset immediately
-        setRolling(false);
-        return;
-      }
+      res = await onRoll();
     } catch {
       setRolling(false);
       return;
     }
 
-    // Let the Dice animation finish before resetting
-    rollResetTimerRef.current = setTimeout(() => setRolling(false), ROLL_RESET_MS);
+    // Server rejected the roll (e.g. wrong turn, game not active)
+    if (res?.error) {
+      setRolling(false);
+      return;
+    }
+
+    // Fallback: if game-update never arrives for some reason, reset after 4s
+    rollResetTimerRef.current = setTimeout(() => setRolling(false), 4000);
   }, [isMyTurn, rolling, onRoll]);
 
-  // ── Winner screen ────────────────────────────────────────────────────────────
+  // ── Winner screen ─────────────────────────────────────────────────────────
   if (winner) {
-    const iWon = winner.socketId === myPlayer?.socketId;
+    const iWon = winner.index === myPlayer?.index;
     return (
       <div
         className="min-h-screen flex flex-col items-center justify-center px-4"
@@ -102,7 +120,7 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
     );
   }
 
-  // ── Game screen ──────────────────────────────────────────────────────────────
+  // ── Game screen ───────────────────────────────────────────────────────────
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -121,7 +139,9 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
         {currentPlayer && (
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold
-              ${isMyTurn ? "bg-yellow-400/20 text-yellow-300 animate-pulse" : "bg-white/10 text-slate-300"}`}
+              ${isMyTurn
+                ? "bg-yellow-400/20 text-yellow-300 animate-pulse"
+                : "bg-white/10 text-slate-300"}`}
           >
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: currentPlayer.color }} />
             {isMyTurn ? "Your Turn!" : `${currentPlayer.name}'s Turn`}
@@ -153,6 +173,7 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
             <div className="flex flex-col gap-2">
               {players.map((p, i) => {
                 const isActive = gameState?.currentPlayerIndex === i;
+                const isMe = p.index === myPlayer?.index;
                 return (
                   <div
                     key={p.id || i}
@@ -166,7 +187,9 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
                       {p.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-white font-semibold text-sm truncate">{p.name}</div>
+                      <div className="text-white font-semibold text-sm truncate">
+                        {p.name}{isMe ? " (You)" : ""}
+                      </div>
                       <div className="text-slate-400 text-xs">
                         Square {p.position === 0 ? "Start" : p.position}
                       </div>
@@ -182,14 +205,14 @@ export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeav
 
           {/* Dice panel */}
           <div className="bg-white/10 backdrop-blur rounded-2xl border border-white/20 p-4">
-            {/* Turn status */}
             <div className="mb-3 text-center">
               <p className={`text-sm font-bold ${isMyTurn ? "text-yellow-300" : "text-slate-400"}`}>
-                {isMyTurn ? "🎯 Your turn — roll the dice!" : `⏳ Waiting for ${currentPlayer?.name ?? "opponent"}…`}
+                {isMyTurn
+                  ? "🎯 Your turn — roll the dice!"
+                  : `⏳ Waiting for ${currentPlayer?.name ?? "opponent"}…`}
               </p>
             </div>
 
-            {/* Last roll display */}
             {gameState?.diceValue != null && (
               <div className="mb-3 flex items-center justify-center gap-2">
                 <span className="text-slate-400 text-xs uppercase tracking-widest">Last roll</span>
