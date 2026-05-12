@@ -8,7 +8,7 @@ export function useSocket() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socket = io(SERVER_URL, { autoConnect: true });
+    const socket = io(SERVER_URL, { autoConnect: true, transports: ["websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => setConnected(true));
