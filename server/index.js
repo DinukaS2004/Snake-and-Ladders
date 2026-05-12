@@ -17,7 +17,6 @@ const {
   rollDice,
   movePlayer,
   isExtraTurn,
-  TURN_TIMER_SECONDS,
 } = require("./gameLogic");
 
 // ─── Express + HTTP ─────────────────────────────────────────────────────────
@@ -58,58 +57,13 @@ function buildRoomPayload(room) {
   };
 }
 
-function startTurnTimer(room) {
-  // Clear any existing timer
-  if (room.turnTimer) {
-    clearInterval(room.turnTimer);
-    room.turnTimer = null;
-  }
-
-  if (!room.gameState || room.gameState.winner) return;
-
-  room.gameState.timerSeconds = TURN_TIMER_SECONDS;
-
-  room.turnTimer = setInterval(() => {
-    if (!room.gameState || room.gameState.winner) {
-      clearInterval(room.turnTimer);
-      room.turnTimer = null;
-      return;
-    }
-
-    room.gameState.timerSeconds -= 1;
-
-    // Broadcast timer tick
-    io.to(room.roomCode).emit("timer-tick", {
-      timerSeconds: room.gameState.timerSeconds,
-      currentPlayerIndex: room.gameState.currentPlayerIndex,
-    });
-
-    // Time's up — auto-roll for current player
-    if (room.gameState.timerSeconds <= 0) {
-      clearInterval(room.turnTimer);
-      room.turnTimer = null;
-      autoRoll(room);
-    }
-  }, 1000);
-}
-
-function autoRoll(room) {
+function processDiceRoll(room, socketId) {
   if (!room.gameState || room.gameState.winner) return;
 
   const currentPlayer = room.players[room.gameState.currentPlayerIndex];
   if (!currentPlayer) return;
 
-  processDiceRoll(room, currentPlayer.socketId, true);
-}
-
-function processDiceRoll(room, socketId, isAutoRoll = false) {
-  if (!room.gameState || room.gameState.winner) return;
-
-  const currentPlayer = room.players[room.gameState.currentPlayerIndex];
-  if (!currentPlayer) return;
-
-  // Only current player can roll (unless auto-roll)
-  if (!isAutoRoll && currentPlayer.socketId !== socketId) {
+  if (currentPlayer.socketId !== socketId) {
     io.to(socketId).emit("error", { message: "Not your turn!" });
     return;
   }
@@ -123,18 +77,12 @@ function processDiceRoll(room, socketId, isAutoRoll = false) {
     playerName: currentPlayer.name,
     dice,
     ...result,
-    isAutoRoll,
   };
 
   // Check win
   if (result.event === "win") {
     room.gameState.winner = currentPlayer.index;
     room.status = "finished";
-
-    if (room.turnTimer) {
-      clearInterval(room.turnTimer);
-      room.turnTimer = null;
-    }
 
     io.to(room.roomCode).emit("game-update", buildRoomPayload(room));
     io.to(room.roomCode).emit("game-over", {
@@ -152,13 +100,9 @@ function processDiceRoll(room, socketId, isAutoRoll = false) {
   }
 
   room.gameState.turnCount += 1;
-  room.gameState.timerSeconds = TURN_TIMER_SECONDS;
   room.gameState.extraTurn = extraTurn;
 
   io.to(room.roomCode).emit("game-update", buildRoomPayload(room));
-
-  // Restart timer for next turn
-  startTurnTimer(room);
 }
 
 // ─── Socket Events ────────────────────────────────────────────────────────────
@@ -245,9 +189,6 @@ io.on("connection", (socket) => {
 
     io.to(roomCode).emit("game-started", buildRoomPayload(room));
     callback({ success: true });
-
-    // Start the first turn timer
-    startTurnTimer(room);
   });
 
   // ── ROLL DICE ──────────────────────────────────────────────────────────────
@@ -276,8 +217,6 @@ io.on("connection", (socket) => {
     console.log(`[Game] Restarted in room: ${roomCode}`);
     io.to(roomCode).emit("game-started", buildRoomPayload(room));
     callback({ success: true });
-
-    startTurnTimer(room);
   });
 
   // ── DISCONNECT ─────────────────────────────────────────────────────────────
@@ -297,10 +236,6 @@ io.on("connection", (socket) => {
       // Notify remaining player
       if (room.status === "playing") {
         room.status = "waiting";
-        if (room.turnTimer) {
-          clearInterval(room.turnTimer);
-          room.turnTimer = null;
-        }
       }
       io.to(roomCode).emit("player-disconnected", {
         room: buildRoomPayload(room),

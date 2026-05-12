@@ -27,7 +27,6 @@ const LADDERS = {
 };
 
 const BOARD_SIZE = 100;
-const TURN_TIMER_SECONDS = 30;
 
 function rollDice() {
   return Math.floor(Math.random() * 6) + 1;
@@ -92,7 +91,6 @@ module.exports = {
   SNAKES,
   LADDERS,
   BOARD_SIZE,
-  TURN_TIMER_SECONDS,
   rollDice,
   movePlayer,
   isExtraTurn,

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import Board from "../components/Board.jsx";
 import Dice from "../components/Dice.jsx";
-import TurnTimer from "../components/TurnTimer.jsx";
 import EventLog from "../components/EventLog.jsx";
 
-export default function GameScreen({ room, myPlayer, timerSeconds, onRoll, onPlayAgain, onLeave }) {
+export default function GameScreen({ room, myPlayer, onRoll, onPlayAgain, onLeave }) {
   const { gameState, players, status } = room;
   const [rolling, setRolling] = useState(false);
   const [events, setEvents] = useState([]);
@@ -140,18 +139,8 @@ export default function GameScreen({ room, myPlayer, timerSeconds, onRoll, onPla
             </div>
           </div>
 
-          {/* Timer + Dice */}
+          {/* Dice */}
           <div className="bg-white/10 backdrop-blur rounded-2xl border border-white/20 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Turn Timer</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {isMyTurn ? "Roll before time runs out!" : "Opponent's turn"}
-                </p>
-              </div>
-              <TurnTimer seconds={timerSeconds} />
-            </div>
-
             <div className="flex justify-center">
               <Dice
                 value={gameState?.diceValue}

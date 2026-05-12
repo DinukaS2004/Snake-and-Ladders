@@ -23,7 +23,6 @@ function createRoom(roomName, password, creatorSocketId) {
     creatorSocketId,
     players: [],       // max 2
     gameState: null,
-    turnTimer: null,
     createdAt: Date.now(),
   };
 
@@ -36,10 +35,6 @@ function getRoom(roomCode) {
 }
 
 function deleteRoom(roomCode) {
-  const room = rooms.get(roomCode);
-  if (room && room.turnTimer) {
-    clearInterval(room.turnTimer);
-  }
   rooms.delete(roomCode);
 }
 
@@ -91,7 +86,6 @@ function initGameState(room) {
     diceValue: null,
     lastEvent: null,
     winner: null,
-    timerSeconds: 30,
   };
   room.status = "playing";
   // Reset positions

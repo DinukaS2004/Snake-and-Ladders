@@ -12,7 +12,6 @@ export default function App() {
   const [screen, setScreen] = useState(SCREENS.LOBBY);
   const [room, setRoom] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
-  const [timerSeconds, setTimerSeconds] = useState(30);
   const [notification, setNotification] = useState(null);
 
   function showNotif(msg, type = "info") {
@@ -30,7 +29,6 @@ export default function App() {
 
       on("game-started", (updatedRoom) => {
         setRoom(updatedRoom);
-        setTimerSeconds(30);
         setScreen(SCREENS.GAME);
         showNotif("Game started! Good luck!", "success");
       }),
@@ -47,10 +45,6 @@ export default function App() {
 
       on("game-over", ({ winner }) => {
         showNotif(`🏆 ${winner} wins!`, "success");
-      }),
-
-      on("timer-tick", ({ timerSeconds: t }) => {
-        setTimerSeconds(t);
       }),
 
       on("player-disconnected", ({ message }) => {
@@ -138,7 +132,6 @@ export default function App() {
         <GameScreen
           room={room}
           myPlayer={myPlayer}
-          timerSeconds={timerSeconds}
           onRoll={handleRollDice}
           onPlayAgain={handlePlayAgain}
           onLeave={handleLeave}
