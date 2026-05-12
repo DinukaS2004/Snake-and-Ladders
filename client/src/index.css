@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a2e;
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .board-cell {
+    @apply relative flex items-center justify-center border border-black/20 select-none;
+    aspect-ratio: 1;
+  }
+  .cell-num {
+    @apply absolute top-0.5 left-1 text-[9px] font-bold text-black/50 leading-none;
+  }
+}
