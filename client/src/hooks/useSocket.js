@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8080";
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3020";
 const EMIT_TIMEOUT_MS = 8000;
 
 export function useSocket() {
