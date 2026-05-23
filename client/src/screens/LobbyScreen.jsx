@@ -1,7 +1,8 @@
+'use client';
 import React, { useState } from "react";
 
 export default function LobbyScreen({ onCreateRoom, onJoinRoom, connected }) {
-  const [tab, setTab] = useState("create"); // "create" | "join"
+  const [tab, setTab] = useState("create");
   const [form, setForm] = useState({ roomName: "", password: "", playerName: "", roomCode: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,133 +34,222 @@ export default function LobbyScreen({ onCreateRoom, onJoinRoom, connected }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8"
-      style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)" }}>
+    <div className="bg-game min-h-screen flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Diamond pattern background */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 48 48' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M24 4L44 24L24 44L4 24z' fill='none' stroke='%23F0B732' stroke-width='0.5'/%3E%3C/svg%3E")`,
+          backgroundSize: "48px 48px",
+          opacity: 0.04,
+        }}
+      />
+
+      {/* Radial glow behind title */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          top: "10%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 500,
+          height: 300,
+          background: "radial-gradient(ellipse, rgba(240,183,50,0.07) 0%, transparent 70%)",
+        }}
+      />
 
       {/* Title */}
-      <div className="text-center mb-8 animate-pop">
-        <div className="text-7xl mb-3">🐍</div>
-        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-          Snake &amp; Ladders
-        </h1>
-        <p className="text-slate-400 mt-2 text-lg">Online Multiplayer</p>
+      <div className="text-center mb-10 animate-pop relative z-10">
+        <div
+          className="inline-block text-6xl mb-5 animate-float"
+          style={{ filter: "drop-shadow(0 4px 16px rgba(240,183,50,0.3))" }}
+        >
+          🐍
+        </div>
+
+        <div className="leading-none">
+          <div
+            className="font-display text-6xl md:text-7xl"
+            style={{
+              color: "#F0B732",
+              textShadow: "0 2px 24px rgba(240,183,50,0.25), 0 0 60px rgba(240,183,50,0.1)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            SNAKE
+          </div>
+          <div
+            className="text-lg font-body font-semibold tracking-[0.45em] uppercase mt-1 mb-1"
+            style={{ color: "rgba(122,158,135,0.7)" }}
+          >
+            &amp; &amp;
+          </div>
+          <div
+            className="font-display text-6xl md:text-7xl"
+            style={{
+              color: "#EDF2EE",
+              textShadow: "0 2px 24px rgba(0,0,0,0.5)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            LADDERS
+          </div>
+        </div>
+
+        <div
+          className="gold-line w-32 mx-auto mt-4 mb-4"
+          style={{ opacity: 0.4 }}
+        />
+
+        <p
+          className="text-sm font-semibold tracking-[0.2em] uppercase"
+          style={{ color: "#7A9E87" }}
+        >
+          Online Multiplayer
+        </p>
+
         <div className="flex items-center justify-center gap-2 mt-3">
-          <div className={`w-2 h-2 rounded-full ${connected ? "bg-green-400 animate-pulse" : "bg-red-400"}`} />
-          <span className="text-sm text-slate-400">{connected ? "Connected to server" : "Connecting..."}</span>
+          <div
+            className={`w-1.5 h-1.5 rounded-full transition-colors ${connected ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`}
+          />
+          <span className="text-xs" style={{ color: "#4A7A57" }}>
+            {connected ? "Server connected" : "Connecting to server..."}
+          </span>
         </div>
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-md bg-white/10 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
-        {/* Tabs */}
-        <div className="flex">
-          {["create", "join"].map((t) => (
+      <div className="w-full max-w-sm game-card overflow-hidden relative z-10 animate-pop" style={{ animationDelay: "0.1s" }}>
+        {/* Top gold line */}
+        <div className="gold-line" />
+
+        {/* Tab switcher */}
+        <div
+          className="flex"
+          style={{ borderBottom: "1px solid rgba(240,183,50,0.1)" }}
+        >
+          {[
+            { id: "create", label: "Create Room", icon: "⊕" },
+            { id: "join",   label: "Join Room",   icon: "→" },
+          ].map(({ id, label, icon }) => (
             <button
-              key={t}
-              onClick={() => { setTab(t); setError(""); }}
-              className={`flex-1 py-4 text-sm font-bold uppercase tracking-widest transition-all
-                ${tab === t
-                  ? "bg-white/20 text-white border-b-2 border-yellow-400"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"}`}
+              key={id}
+              onClick={() => { setTab(id); setError(""); }}
+              className="flex-1 py-4 text-sm font-semibold tracking-wider transition-all duration-200 relative"
+              style={{
+                color: tab === id ? "#F0B732" : "#4A7A57",
+                background: tab === id ? "rgba(240,183,50,0.04)" : "transparent",
+                borderBottom: tab === id ? "1px solid #F0B732" : "1px solid transparent",
+                marginBottom: -1,
+              }}
             >
-              {t === "create" ? "🏠 Create Room" : "🚪 Join Room"}
+              <span className="mr-2 opacity-70">{icon}</span>
+              {label}
             </button>
           ))}
         </div>
 
         <form onSubmit={tab === "create" ? handleCreate : handleJoin} className="p-6 flex flex-col gap-4">
-          {/* Player name — always visible */}
+          {/* Player name */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wider">
-              Your Name
-            </label>
+            <label className="field-label">Your Name</label>
             <input
-              type="text" maxLength={16} placeholder="Enter your name"
-              value={form.playerName} onChange={(e) => set("playerName", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/10 text-white placeholder-slate-500
-                border border-white/20 focus:border-yellow-400 focus:outline-none focus:ring-2
-                focus:ring-yellow-400/30 transition-all"
+              type="text"
+              maxLength={16}
+              placeholder="Enter your name"
+              value={form.playerName}
+              onChange={(e) => set("playerName", e.target.value)}
+              className="input-field"
             />
           </div>
 
           {tab === "create" ? (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wider">
-                  Room Name
-                </label>
+                <label className="field-label">Room Name</label>
                 <input
-                  type="text" maxLength={24} placeholder="My Awesome Room"
-                  value={form.roomName} onChange={(e) => set("roomName", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 text-white placeholder-slate-500
-                    border border-white/20 focus:border-yellow-400 focus:outline-none focus:ring-2
-                    focus:ring-yellow-400/30 transition-all"
+                  type="text"
+                  maxLength={24}
+                  placeholder="My Awesome Room"
+                  value={form.roomName}
+                  onChange={(e) => set("roomName", e.target.value)}
+                  className="input-field"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wider">
-                  Room Password
-                </label>
+                <label className="field-label">Room Password</label>
                 <input
-                  type="password" minLength={4} maxLength={20} placeholder="At least 4 characters"
-                  value={form.password} onChange={(e) => set("password", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 text-white placeholder-slate-500
-                    border border-white/20 focus:border-yellow-400 focus:outline-none focus:ring-2
-                    focus:ring-yellow-400/30 transition-all"
+                  type="password"
+                  minLength={4}
+                  maxLength={20}
+                  placeholder="Min. 4 characters"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  className="input-field"
                 />
               </div>
             </>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wider">
-                  Room Code
-                </label>
+                <label className="field-label">Room Code</label>
                 <input
-                  type="text" maxLength={6} placeholder="6-character code (e.g. AB12CD)"
+                  type="text"
+                  maxLength={6}
+                  placeholder="AB12CD"
                   value={form.roomCode}
                   onChange={(e) => set("roomCode", e.target.value.toUpperCase())}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 text-white placeholder-slate-500
-                    border border-white/20 focus:border-yellow-400 focus:outline-none focus:ring-2
-                    focus:ring-yellow-400/30 transition-all font-mono tracking-widest text-lg"
+                  className="input-field text-center font-mono tracking-[0.35em] text-xl"
+                  style={{ color: "#F0B732" }}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 uppercase tracking-wider">
-                  Room Password
-                </label>
+                <label className="field-label">Room Password</label>
                 <input
-                  type="password" placeholder="Enter room password"
-                  value={form.password} onChange={(e) => set("password", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 text-white placeholder-slate-500
-                    border border-white/20 focus:border-yellow-400 focus:outline-none focus:ring-2
-                    focus:ring-yellow-400/30 transition-all"
+                  type="password"
+                  placeholder="Enter room password"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  className="input-field"
                 />
               </div>
             </>
           )}
 
           {error && (
-            <div className="px-4 py-3 rounded-xl bg-red-500/20 border border-red-400/40 text-red-300 text-sm animate-slide-in">
-              ⚠️ {error}
+            <div
+              className="px-4 py-3 rounded-xl text-sm animate-slide-in flex items-center gap-2"
+              style={{
+                background: "rgba(232,69,69,0.08)",
+                border: "1px solid rgba(232,69,69,0.3)",
+                color: "#E84545",
+              }}
+            >
+              <span>⚠</span>
+              <span>{error}</span>
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading || !connected}
-            className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider
-              bg-gradient-to-r from-yellow-400 to-orange-500 text-slate-900
-              hover:from-yellow-300 hover:to-orange-400 active:scale-95
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-all duration-200 shadow-lg shadow-orange-500/30 mt-1"
+            className="w-full py-4 btn-gold text-[0.9375rem] mt-1"
           >
-            {loading ? "⏳ Please wait..." : tab === "create" ? "🏠 Create Room" : "🚪 Join Room"}
+            {loading
+              ? "Please wait..."
+              : tab === "create"
+              ? "Create Room →"
+              : "Join Room →"}
           </button>
         </form>
+
+        {/* Bottom gold line */}
+        <div className="gold-line" style={{ opacity: 0.3 }} />
       </div>
 
-      <p className="text-slate-600 text-xs mt-6">Two players • Real-time • Online</p>
+      <p className="text-xs mt-6 relative z-10 tracking-widest" style={{ color: "#2E4F37" }}>
+        TWO PLAYERS &nbsp;·&nbsp; REAL-TIME &nbsp;·&nbsp; ONLINE
+      </p>
     </div>
   );
 }

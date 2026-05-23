@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Projects\\\\Snake annd Ladders\" -Recurse | Where-Object { $_.FullName -notmatch \"node_modules\" -and $_.FullName -notmatch \"\\\\.git\" } | Select-Object FullName)",
+      "Bash(Get-ChildItem \"C:\\\\Projects\\\\Snake annd Ladders\\\\client\\\\src\\\\components\")",
+      "Bash(Select-Object Name)",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Projects\\\\Snake annd Ladders\\\\client\\\\src\\\\app\")"
+    ]
+  }
+}

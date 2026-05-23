@@ -4,16 +4,12 @@ const { v4: uuidv4 } = require("uuid");
 const rooms = new Map();
 
 function generateRoomCode() {
-  // 6-char uppercase alphanumeric
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 function createRoom(roomName, password, creatorSocketId) {
   let roomCode = generateRoomCode();
-  // Ensure unique code
-  while (rooms.has(roomCode)) {
-    roomCode = generateRoomCode();
-  }
+  while (rooms.has(roomCode)) roomCode = generateRoomCode();
 
   const room = {
     roomCode,
@@ -21,7 +17,7 @@ function createRoom(roomName, password, creatorSocketId) {
     password,
     status: "waiting", // waiting | playing | finished
     creatorSocketId,
-    players: [],       // max 2
+    players: [],
     gameState: null,
     createdAt: Date.now(),
   };
@@ -44,52 +40,84 @@ function addPlayerToRoom(roomCode, socketId, playerName) {
   if (room.players.length >= 2) return { error: "Room is full." };
   if (room.status !== "waiting") return { error: "Game already in progress." };
 
-  const playerIndex = room.players.length; // 0 = Player 1, 1 = Player 2
+  const playerIndex = room.players.length;
   const player = {
-    id: uuidv4(),
+    id: uuidv4(),          // stable UUID — survives reconnects
     socketId,
     name: playerName,
     position: 0,
     index: playerIndex,
-    color: playerIndex === 0 ? "#ef4444" : "#3b82f6", // red, blue
+    color: playerIndex === 0 ? "#ef4444" : "#3b82f6",
     isCreator: socketId === room.creatorSocketId,
+    connected: true,
   };
 
   room.players.push(player);
   return { player, room };
 }
 
+// Hard removal — used when grace period expires or waiting-room leave
 function removePlayerFromRoom(socketId) {
   for (const [roomCode, room] of rooms.entries()) {
     const idx = room.players.findIndex((p) => p.socketId === socketId);
     if (idx !== -1) {
-      room.players.splice(idx, 1);
-      return { roomCode, room };
+      const [player] = room.players.splice(idx, 1);
+      return { roomCode, room, player };
     }
   }
   return null;
 }
 
-function getRoomBySocketId(socketId) {
+// Soft disconnect — marks as offline but keeps slot in room
+function markPlayerDisconnected(socketId) {
   for (const [roomCode, room] of rooms.entries()) {
-    if (room.players.some((p) => p.socketId === socketId)) {
-      return room;
+    const player = room.players.find((p) => p.socketId === socketId);
+    if (player) {
+      player.connected = false;
+      return { roomCode, room, player };
     }
+  }
+  return null;
+}
+
+// Rejoin: find player by stable UUID, update socket
+function rejoinPlayer(roomCode, playerId, newSocketId) {
+  const room = rooms.get(roomCode);
+  if (!room) return { error: "Room no longer exists." };
+
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return { error: "You are no longer in this room." };
+
+  player.socketId = newSocketId;
+  player.connected = true;
+
+  // Keep creatorSocketId in sync so start/play-again checks still work
+  if (player.isCreator) room.creatorSocketId = newSocketId;
+
+  return { player, room };
+}
+
+function getRoomBySocketId(socketId) {
+  for (const [, room] of rooms.entries()) {
+    if (room.players.some((p) => p.socketId === socketId)) return room;
   }
   return null;
 }
 
 function initGameState(room) {
   room.gameState = {
-    currentPlayerIndex: 0,   // index into room.players
+    currentPlayerIndex: 0,
     turnCount: 0,
     diceValue: null,
     lastEvent: null,
     winner: null,
+    extraTurn: false,   // explicitly initialised — prevents stale value on play-again
   };
   room.status = "playing";
-  // Reset positions
-  room.players.forEach((p) => (p.position = 0));
+  room.players.forEach((p) => {
+    p.position = 0;
+    p.connected = true;  // reset connected flag on new game
+  });
 }
 
 module.exports = {
@@ -99,6 +127,8 @@ module.exports = {
   deleteRoom,
   addPlayerToRoom,
   removePlayerFromRoom,
+  markPlayerDisconnected,
+  rejoinPlayer,
   getRoomBySocketId,
   initGameState,
 };

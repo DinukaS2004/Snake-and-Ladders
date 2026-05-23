@@ -1,12 +1,13 @@
+'use client';
 import React, { useState, useEffect, useRef } from "react";
 
 const DOT_POSITIONS = {
   1: [[50, 50]],
-  2: [[25, 25], [75, 75]],
-  3: [[25, 25], [50, 50], [75, 75]],
-  4: [[25, 25], [75, 25], [25, 75], [75, 75]],
-  5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
-  6: [[25, 20], [75, 20], [25, 50], [75, 50], [25, 80], [75, 80]],
+  2: [[28, 28], [72, 72]],
+  3: [[28, 28], [50, 50], [72, 72]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[28, 22], [72, 22], [28, 50], [72, 50], [28, 78], [72, 78]],
 };
 
 const ANIM_TICKS = 8;
@@ -15,23 +16,18 @@ const ANIM_MS = 75;
 export default function Dice({ value, rolling, disabled, onRoll }) {
   const [displayValue, setDisplayValue] = useState(value || 1);
   const [animating, setAnimating] = useState(false);
-  // Ref so the animation closure always reads the latest server value
   const valueRef = useRef(value || 1);
 
   useEffect(() => {
     valueRef.current = value || 1;
   }, [value]);
 
-  // Animation is driven solely by the `rolling` prop.
-  // Bug fix: when rolling → false we ALWAYS call setAnimating(false)
-  // so the dice can never get stuck in a permanently-disabled state.
   useEffect(() => {
     if (!rolling) {
       setAnimating(false);
       setDisplayValue(valueRef.current);
       return;
     }
-
     setAnimating(true);
     let tick = 0;
     const id = setInterval(() => {
@@ -43,18 +39,15 @@ export default function Dice({ value, rolling, disabled, onRoll }) {
         setAnimating(false);
       }
     }, ANIM_MS);
-
     return () => clearInterval(id);
-  }, [rolling]); // intentionally not listing `value` — use ref instead
+  }, [rolling]);
 
-  // Keep display fresh when value arrives/changes while idle
   useEffect(() => {
     if (!rolling && !animating) setDisplayValue(value || 1);
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dots = DOT_POSITIONS[displayValue] || DOT_POSITIONS[1];
   const isDisabled = disabled || animating;
-  const dotFill = disabled && !animating ? "#9ca3af" : "#1e293b";
 
   let label = "Tap to Roll";
   if (animating) label = "Rolling…";
@@ -65,25 +58,59 @@ export default function Dice({ value, rolling, disabled, onRoll }) {
       <button
         onClick={onRoll}
         disabled={isDisabled}
-        className={`
-          relative w-20 h-20 md:w-24 md:h-24 rounded-2xl shadow-2xl
-          transition-all duration-150 select-none
-          ${animating ? "animate-bounce" : ""}
-          ${isDisabled
-            ? "bg-gray-300 cursor-not-allowed shadow-inner"
-            : "bg-white hover:scale-110 active:scale-95 cursor-pointer hover:shadow-yellow-400/60 hover:shadow-2xl"
+        className={`relative select-none transition-all duration-150 rounded-2xl ${animating ? "animate-bounce" : ""}`}
+        style={{
+          width: 88,
+          height: 88,
+          background: isDisabled && !animating
+            ? "rgba(30,50,35,0.6)"
+            : "linear-gradient(145deg, #FEFEFE 0%, #E8E8E8 100%)",
+          border: isDisabled && !animating
+            ? "2px solid rgba(122,158,135,0.15)"
+            : "2px solid rgba(240,183,50,0.6)",
+          boxShadow: isDisabled && !animating
+            ? "inset 0 2px 4px rgba(0,0,0,0.3)"
+            : "0 6px 24px rgba(240,183,50,0.25), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8)",
+          cursor: isDisabled ? "not-allowed" : "pointer",
+          transform: isDisabled ? "none" : undefined,
+        }}
+        onMouseEnter={(e) => {
+          if (!isDisabled) {
+            e.currentTarget.style.transform = "scale(1.08) translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 10px 32px rgba(240,183,50,0.4), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8)";
           }
-        `}
-        style={{ border: "3px solid #1e293b" }}
+        }}
+        onMouseLeave={(e) => {
+          if (!isDisabled) {
+            e.currentTarget.style.transform = "none";
+            e.currentTarget.style.boxShadow = "0 6px 24px rgba(240,183,50,0.25), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8)";
+          }
+        }}
+        onMouseDown={(e) => {
+          if (!isDisabled) e.currentTarget.style.transform = "scale(0.94)";
+        }}
+        onMouseUp={(e) => {
+          if (!isDisabled) e.currentTarget.style.transform = "scale(1.08) translateY(-2px)";
+        }}
       >
         <svg viewBox="0 0 100 100" className="w-full h-full p-2">
           {dots.map(([cx, cy], i) => (
-            <circle key={i} cx={cx} cy={cy} r={isDisabled ? 7 : 8} fill={dotFill} />
+            <circle
+              key={i}
+              cx={cx}
+              cy={cy}
+              r={isDisabled && !animating ? 7 : 8}
+              fill={isDisabled && !animating ? "rgba(122,158,135,0.4)" : "#1a1a1a"}
+              style={{ transition: "all 0.1s" }}
+            />
           ))}
         </svg>
       </button>
 
-      <span className={`text-sm font-semibold ${disabled && !animating ? "text-gray-400" : "text-white"}`}>
+      <span
+        className="text-xs font-bold tracking-widest uppercase"
+        style={{ color: isDisabled && !animating ? "#2E4F37" : "#7A9E87" }}
+      >
         {label}
       </span>
     </div>

@@ -1,7 +1,8 @@
+'use client';
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:8080";
 const EMIT_TIMEOUT_MS = 8000;
 
 export function useSocket() {
@@ -30,7 +31,6 @@ export function useSocket() {
         return resolve({ error: "Not connected to server." });
       }
 
-      // Fail-safe: resolve with an error if server never responds
       const timer = setTimeout(
         () => resolve({ error: "Server did not respond. Please try again." }),
         EMIT_TIMEOUT_MS

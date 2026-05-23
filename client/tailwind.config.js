@@ -1,8 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['var(--font-display)', 'serif'],
+        body: ['var(--font-body)', 'system-ui', 'sans-serif'],
+      },
       keyframes: {
         "dice-roll": {
           "0%": { transform: "rotate(0deg) scale(1)" },
@@ -15,36 +19,31 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-8px)" },
         },
-        "snake-shake": {
-          "0%, 100%": { transform: "translateX(0)" },
-          "25%": { transform: "translateX(-4px)" },
-          "75%": { transform: "translateX(4px)" },
-        },
-        "ladder-climb": {
-          "0%": { transform: "translateY(0)" },
-          "100%": { transform: "translateY(-10px)" },
-        },
-        "flash": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.3" },
-        },
         "slide-in": {
-          "0%": { transform: "translateY(-20px)", opacity: "0" },
-          "100%": { transform: "translateY(0)", opacity: "1" },
+          "0%": { transform: "translateY(-16px) scale(0.96)", opacity: "0" },
+          "100%": { transform: "translateY(0) scale(1)", opacity: "1" },
         },
         "pop": {
-          "0%": { transform: "scale(0.5)", opacity: "0" },
-          "70%": { transform: "scale(1.15)" },
+          "0%": { transform: "scale(0.85)", opacity: "0" },
+          "60%": { transform: "scale(1.04)" },
           "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(240,183,50,0)" },
+          "50%": { boxShadow: "0 0 20px 4px rgba(240,183,50,0.25)" },
         },
       },
       animation: {
         "dice-roll": "dice-roll 0.6s ease-in-out",
         "token-bounce": "token-bounce 0.5s ease-in-out 3",
-        "snake-shake": "snake-shake 0.4s ease-in-out 3",
-        "flash": "flash 0.5s ease-in-out 4",
-        "slide-in": "slide-in 0.3s ease-out",
-        "pop": "pop 0.4s ease-out",
+        "slide-in": "slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "pop": "pop 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+        "float": "float 3s ease-in-out infinite",
+        "glow-pulse": "glow-pulse 2.5s ease-in-out infinite",
       },
     },
   },

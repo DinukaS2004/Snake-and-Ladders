@@ -1,10 +1,10 @@
+'use client';
 import React, { useMemo } from "react";
 import {
   SNAKES, LADDERS, squareToGrid, squareToSVG,
   getCellColor, buildSnakePath, SNAKE_COLORS,
 } from "../utils/boardUtils";
 
-// Build all 100 cells in correct order
 function buildCells() {
   const cells = [];
   for (let sq = 1; sq <= 100; sq++) {
@@ -14,7 +14,6 @@ function buildCells() {
   return cells;
 }
 
-// Draw a ladder between two squares
 function LadderSVG({ from, to, color }) {
   const f = squareToSVG(from);
   const t = squareToSVG(to);
@@ -51,7 +50,6 @@ function LadderSVG({ from, to, color }) {
   );
 }
 
-// Draw a colorful snake
 function SnakeSVG({ head, tail, color }) {
   const path = buildSnakePath(head, tail);
   const h = squareToSVG(head);
@@ -59,29 +57,23 @@ function SnakeSVG({ head, tail, color }) {
 
   return (
     <g>
-      {/* Shadow */}
       <path d={path} fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="14" strokeLinecap="round" />
-      {/* Body */}
       <path d={path} fill="none" stroke={color} strokeWidth="11" strokeLinecap="round" />
-      {/* Lighter belly */}
       <path d={path} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="4" strokeLinecap="round" strokeDasharray="8 16" />
-      {/* Head circle */}
       <circle cx={h.x} cy={h.y} r={14} fill={color} stroke="white" strokeWidth="2" />
-      {/* Eyes */}
       <circle cx={h.x - 5} cy={h.y - 4} r={3} fill="white" />
       <circle cx={h.x + 5} cy={h.y - 4} r={3} fill="white" />
       <circle cx={h.x - 5} cy={h.y - 4} r={1.5} fill="#1e293b" />
       <circle cx={h.x + 5} cy={h.y - 4} r={1.5} fill="#1e293b" />
-      {/* Tongue */}
-      <path d={`M ${h.x} ${h.y + 10} L ${h.x - 4} ${h.y + 17} M ${h.x} ${h.y + 10} L ${h.x + 4} ${h.y + 17}`}
-        stroke="red" strokeWidth="2" strokeLinecap="round" />
-      {/* Tail tip */}
+      <path
+        d={`M ${h.x} ${h.y + 10} L ${h.x - 4} ${h.y + 17} M ${h.x} ${h.y + 10} L ${h.x + 4} ${h.y + 17}`}
+        stroke="red" strokeWidth="2" strokeLinecap="round"
+      />
       <circle cx={t.x} cy={t.y} r={5} fill={color} />
     </g>
   );
 }
 
-// Player token
 function PlayerToken({ square, player, offset = 0 }) {
   if (!square || square === 0) return null;
   const { row, col } = squareToGrid(square);
@@ -90,8 +82,12 @@ function PlayerToken({ square, player, offset = 0 }) {
 
   return (
     <g className="animate-token-bounce">
-      <circle cx={cx} cy={cy} r={16} fill={player.color} stroke="white" strokeWidth="3"
-        style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.4))" }} />
+      <circle
+        cx={cx} cy={cy} r={16}
+        fill={player.color}
+        stroke="white" strokeWidth="3"
+        style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
+      />
       <text x={cx} y={cy + 5} textAnchor="middle" fontSize="14" fontWeight="bold" fill="white">
         {player.name.charAt(0).toUpperCase()}
       </text>
@@ -108,10 +104,14 @@ export default function Board({ players = [], highlightSquare = null }) {
 
   return (
     <div className="relative w-full" style={{ maxWidth: 600 }}>
-      {/* Grid */}
       <div
-        className="grid rounded-xl overflow-hidden shadow-2xl border-4 border-amber-800"
-        style={{ gridTemplateColumns: "repeat(10, 1fr)", gridTemplateRows: "repeat(10, 1fr)" }}
+        className="grid overflow-hidden"
+        style={{
+          gridTemplateColumns: "repeat(10, 1fr)",
+          gridTemplateRows: "repeat(10, 1fr)",
+          border: "3px solid rgba(240,183,50,0.3)",
+          borderRadius: "0.75rem",
+        }}
       >
         {cells.map(({ sq, row, col }) => (
           <div
@@ -131,23 +131,17 @@ export default function Board({ players = [], highlightSquare = null }) {
         ))}
       </div>
 
-      {/* SVG Overlay for snakes, ladders, tokens */}
       <svg
         viewBox="0 0 1000 1000"
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ top: 0, left: 0 }}
       >
-        {/* Ladders */}
         {ladderEntries.map(([from, to], i) => (
           <LadderSVG key={`l-${from}`} from={from} to={to} color={LADDER_COLORS[i % LADDER_COLORS.length]} />
         ))}
-
-        {/* Snakes */}
         {snakeEntries.map(([head, tail], i) => (
           <SnakeSVG key={`s-${head}`} head={head} tail={tail} color={SNAKE_COLORS[i % SNAKE_COLORS.length]} />
         ))}
-
-        {/* Player tokens */}
         {players.map((player, i) => (
           player.position > 0 && (
             <PlayerToken
